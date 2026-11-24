@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Table } from 'react-bootstrap';
 import { productosApi } from '../../services/api';
 import { useCatalogo } from '../../context/CatalogoContext';
@@ -8,10 +8,15 @@ import Boton from '../atoms/Boton';
 import FormularioProducto from './FormularioProducto';
 
 export default function AdminProductos() {
-  const { productos, origen, recargar } = useCatalogo();
+  const { productos, origen, cargando, recargar } = useCatalogo();
   const [editando, setEditando] = useState(undefined);
   const [porEliminar, setPorEliminar] = useState(null);
   const [mensaje, setMensaje] = useState(null);
+
+  // si el catálogo se cargó antes de que la API respondiera, se vuelve a pedir
+  useEffect(() => {
+    if (origen !== 'api') recargar();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function guardar(datos) {
     if (editando) {
@@ -39,7 +44,14 @@ export default function AdminProductos() {
   }
 
   if (origen !== 'api') {
-    return <Alert variant="warning">No hay conexión con el servidor; el catálogo no se puede administrar.</Alert>;
+    return (
+      <Alert variant="warning" className="d-flex flex-column flex-sm-row gap-3 align-items-sm-center justify-content-between">
+        <span>{cargando ? 'Conectando con el servidor…' : 'No hay conexión con el servidor; el catálogo no se puede administrar.'}</span>
+        <Boton size="sm" variante="secundario" disabled={cargando} onClick={recargar} registro="Reintentar conexión (panel admin)">
+          Reintentar
+        </Boton>
+      </Alert>
+    );
   }
 
   return (
