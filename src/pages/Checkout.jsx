@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Row, Col, Form } from 'react-bootstrap';
+import { Row, Col, Form, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTienda } from '../context/TiendaContext';
+import { useAuth } from '../context/AuthContext';
+import { useCatalogo } from '../context/CatalogoContext';
+import { pedidosApi } from '../services/api';
 import { calcularEnvio } from '../utils/carrito';
 import { dinero } from '../utils/format';
 import { validarCheckout } from '../utils/validaciones';
@@ -31,15 +34,19 @@ const CAMPOS_INICIALES = {
 const COMUNAS = [['', 'Selecciona tu comuna'], 'Santiago Centro', 'Providencia', 'Las Condes', 'Valparaíso', 'Concepción', 'Otra'];
 const PAGOS = [
   ['', 'Selecciona un método de pago'],
-  ['tarjeta', 'Tarjeta (sin cobro)'],
-  ['transferencia', 'Transferencia (sin cobro)'],
+  ['tarjeta', 'Tarjeta de débito o crédito'],
+  ['transferencia', 'Transferencia bancaria'],
   ['efectivo', 'Efectivo al retirar'],
 ];
 
 export default function Checkout() {
   const { carrito, total, vaciarCarrito } = useTienda();
-  const [datos, setDatos] = useState(CAMPOS_INICIALES);
+  const { perfil } = useAuth();
+  const { buscarPorCodigo, recargar } = useCatalogo();
+  const [datos, setDatos] = useState(() => ({ ...CAMPOS_INICIALES, nombre: perfil?.nombre ?? '', email: perfil?.email ?? '' }));
   const [errores, setErrores] = useState({});
+  const [errorServidor, setErrorServidor] = useState('');
+  const [enviando, setEnviando] = useState(false);
   const [finalizado, setFinalizado] = useState(null);
   const navegar = useNavigate();
   const envio = calcularEnvio(carrito, datos.envio);
@@ -52,30 +59,46 @@ export default function Checkout() {
     }
   }
 
-  function confirmar(evento) {
+  async function confirmar(evento) {
     evento.preventDefault();
     const nuevos = validarCheckout(datos);
     setErrores(nuevos);
+    setErrorServidor('');
     registrarEvento('formulario', 'Formulario de checkout enviado', { errores: Object.keys(nuevos).length ? nuevos : 'ninguno' });
     if (Object.keys(nuevos).length || !carrito.length) return;
 
-    const pedido = {
-      id: `LU-${Date.now().toString(36).toUpperCase()}`,
-      fechaPedido: new Date().toISOString(),
-      items: carrito.map((x) => ({ id: x.id, titulo: x.titulo, cantidad: x.cantidad, precio: x.precio })),
-      total: total + envio,
-      estado: 'Simulación',
-    };
-    try {
-      const anteriores = JSON.parse(localStorage.getItem('levelup_pedidos_demo') || '[]');
-      localStorage.setItem('levelup_pedidos_demo', JSON.stringify([...anteriores, pedido]));
-    } catch {
-      /* modo demostrativo */
+    const items = carrito.map((x) => ({
+      productoId: x.productoId ?? buscarPorCodigo(x.id)?.productoId,
+      cantidad: x.cantidad,
+    }));
+    if (items.some((x) => !x.productoId)) {
+      setErrorServidor('No pudimos validar los productos con el servidor. Recarga la página e inténtalo nuevamente.');
+      return;
     }
-    registrarEvento('carrito', `Pedido registrado ${pedido.id}`, pedido);
-    setFinalizado(pedido);
-    vaciarCarrito();
-    window.scrollTo?.(0, 0);
+
+    const pedido = {
+      items,
+      metodoEnvio: datos.envio === 'tienda' ? 'TIENDA' : 'DOMICILIO',
+      direccion: datos.direccion.trim(),
+      comuna: datos.comuna,
+      telefono: datos.telefono.trim(),
+      metodoPago: datos.pago,
+    };
+
+    setEnviando(true);
+    try {
+      const creado = await pedidosApi.crear(pedido);
+      registrarEvento('carrito', `Pedido #${creado.id} registrado en el servidor`, creado);
+      setFinalizado(creado);
+      vaciarCarrito();
+      recargar();
+      window.scrollTo?.(0, 0);
+    } catch (err) {
+      registrarEvento('error', `No se pudo registrar el pedido: ${err.message}`);
+      setErrorServidor(err.message);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   const campo = (id, etiqueta, tipo = 'text', extra = {}) => (
@@ -86,14 +109,22 @@ export default function Checkout() {
     return (
       <section className="seccion">
         <div className="container exito-panel">
-          <h1>✅ Pedido de demostración registrado</h1>
+          <h1>✅ Pedido registrado</h1>
           <p>
-            Tu número de referencia es <strong>{finalizado.id}</strong>.
+            Tu número de pedido es <strong>#{finalizado.id}</strong> y quedó en estado <strong>{finalizado.estado}</strong>.
           </p>
-          <p>No se realizó ningún cobro, despacho ni transferencia.</p>
-          <Boton onClick={() => navegar('/')} registro="Volver al inicio (pedido listo)">
-            Volver al inicio
-          </Boton>
+          <p>
+            Subtotal {dinero(finalizado.subtotal)} · Envío {finalizado.envio === 0 ? 'gratis' : dinero(finalizado.envio)} · Total{' '}
+            <strong>{dinero(finalizado.total)}</strong>
+          </p>
+          <div className="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+            <Boton to="/mis-pedidos" registro="Ver mis pedidos (pedido listo)">
+              Ver mis pedidos
+            </Boton>
+            <Boton variante="secundario" onClick={() => navegar('/')} registro="Volver al inicio (pedido listo)">
+              Volver al inicio
+            </Boton>
+          </div>
         </div>
       </section>
     );
@@ -111,7 +142,7 @@ export default function Checkout() {
   }
 
   return (
-    <PlantillaPagina titulo="Finalizar compra" descripcion="Formulario educativo; no procesa pagos reales.">
+    <PlantillaPagina titulo="Finalizar compra" descripcion="Completa tus datos para confirmar el pedido.">
       <Row className="g-4">
         <Col xs={12} lg={8}>
           <Form className="tarjeta-form" onSubmit={confirmar} noValidate>
@@ -123,7 +154,7 @@ export default function Checkout() {
               <Col xs={12} md={6}>{campo('fecha', 'Fecha deseada', 'date')}</Col>
               <Col xs={12}>{campo('direccion', 'Dirección de despacho')}</Col>
               <Col xs={12} md={6}>{campo('comuna', 'Región / Comuna', 'select', { opciones: COMUNAS })}</Col>
-              <Col xs={12} md={6}>{campo('pago', 'Método de pago (simulación)', 'select', { opciones: PAGOS })}</Col>
+              <Col xs={12} md={6}>{campo('pago', 'Método de pago', 'select', { opciones: PAGOS })}</Col>
             </Row>
 
             <Form.Group className="mb-3">
@@ -158,15 +189,16 @@ export default function Checkout() {
               name="terminos"
               type="checkbox"
               className="mb-3"
-              label="Acepto que este pedido es una simulación académica."
+              label="Acepto los términos y condiciones de compra."
               checked={datos.terminos}
               onChange={cambiar}
               isInvalid={Boolean(errores.terminos)}
               feedback={errores.terminos}
               feedbackType="invalid"
             />
-            <Boton type="submit" ancho registro="Confirmar pedido de demostración">
-              Confirmar pedido de demostración
+            {errorServidor && <Alert variant="danger">{errorServidor}</Alert>}
+            <Boton type="submit" ancho disabled={enviando} registro="Confirmar pedido">
+              {enviando ? 'Enviando pedido…' : 'Confirmar pedido'}
             </Boton>
           </Form>
         </Col>

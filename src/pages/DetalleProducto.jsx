@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Row, Col } from 'react-bootstrap';
 import { useParams } from 'react-router-dom';
-import { buscarJuegoPorId } from '../data/juegos';
+import { useCatalogo } from '../context/CatalogoContext';
+import { useAuth } from '../context/AuthContext';
 import { plataformaTexto } from '../utils/format';
 import { useTienda } from '../context/TiendaContext';
 import { registrarEvento } from '../utils/logger';
@@ -13,7 +14,9 @@ import Boton from '../components/atoms/Boton';
 
 export default function DetalleProducto() {
   const { id } = useParams();
-  const juego = buscarJuegoPorId(id);
+  const { buscarPorCodigo, cargando } = useCatalogo();
+  const { esAdmin } = useAuth();
+  const juego = buscarPorCodigo(id);
   const { agregarAlCarrito } = useTienda();
 
   useEffect(() => {
@@ -25,6 +28,7 @@ export default function DetalleProducto() {
       <section className="seccion">
         <div className="container">
           <h1>Producto no encontrado</h1>
+          {cargando && <p className="ayuda">Buscando en el catálogo actualizado…</p>}
           <Boton to="/catalogo" registro="Volver al catálogo (producto no encontrado)">
             Volver al catálogo
           </Boton>
@@ -50,9 +54,18 @@ export default function DetalleProducto() {
             <p>{juego.descripcion}</p>
             <Precio valor={juego.precio} anterior={juego.precioAnterior} grande />
             <div className="d-flex flex-column flex-sm-row gap-2">
-              <Boton onClick={() => agregarAlCarrito(juego)} registro={`Agregar ${juego.titulo} (detalle)`}>
-                🛒 Agregar al carrito
+              <Boton
+                onClick={() => agregarAlCarrito(juego)}
+                disabled={juego.stock === 0}
+                registro={`Agregar ${juego.titulo} (detalle)`}
+              >
+                {juego.stock === 0 ? 'Agotado' : '🛒 Agregar al carrito'}
               </Boton>
+              {esAdmin && (
+                <Boton variante="secundario" to="/admin" registro="Ir al panel admin (detalle)">
+                  ⚙️ Editar en el panel
+                </Boton>
+              )}
               <Boton variante="secundario" to="/catalogo" registro="Volver al catálogo (detalle)">
                 ← Volver al catálogo
               </Boton>
@@ -72,6 +85,12 @@ export default function DetalleProducto() {
                   <dt>Género</dt>
                   <dd>{juego.genero}</dd>
                 </div>
+                {typeof juego.stock === 'number' && (
+                  <div>
+                    <dt>Stock disponible</dt>
+                    <dd>{juego.stock}</dd>
+                  </div>
+                )}
               </dl>
             </div>
           </article>

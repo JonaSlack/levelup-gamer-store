@@ -1,13 +1,29 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { useTienda } from '../context/TiendaContext';
+import { Spinner } from 'react-bootstrap';
+import { useAuth } from '../context/AuthContext';
 import { registrarEvento } from '../utils/logger';
 
-export default function ProtectedRoute({ children }) {
-  const { usuario } = useTienda();
+export default function ProtectedRoute({ children, roles }) {
+  const { autenticado, rol, verificando } = useAuth();
   const ubicacion = useLocation();
 
-  if (usuario) return children;
+  if (verificando) {
+    return (
+      <div className="seccion text-center" role="status">
+        <Spinner animation="border" size="sm" /> Verificando sesión…
+      </div>
+    );
+  }
 
-  registrarEvento('sesion', `Ruta protegida ${ubicacion.pathname}: sin sesión, redirigiendo a /login`);
-  return <Navigate to="/login" replace state={{ desde: ubicacion.pathname }} />;
+  if (!autenticado) {
+    registrarEvento('sesion', `Ruta protegida ${ubicacion.pathname}: sin sesión, redirigiendo a /login`);
+    return <Navigate to="/login" replace state={{ desde: ubicacion.pathname }} />;
+  }
+
+  if (roles && !roles.includes(rol)) {
+    registrarEvento('sesion', `Ruta ${ubicacion.pathname} bloqueada para el rol ${rol}`);
+    return <Navigate to="/acceso-denegado" replace state={{ desde: ubicacion.pathname }} />;
+  }
+
+  return children;
 }

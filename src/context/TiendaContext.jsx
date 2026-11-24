@@ -9,12 +9,23 @@ import {
 } from '../utils/carrito';
 import { obtenerCarrito, guardarCarrito } from '../utils/almacenamiento';
 import { registrarEvento, registrarTabla } from '../utils/logger';
+import { AuthProvider } from './AuthContext';
+import { CatalogoProvider } from './CatalogoContext';
 
 const TiendaContext = createContext(null);
 
 export function TiendaProvider({ children }) {
+  return (
+    <AuthProvider>
+      <CatalogoProvider>
+        <CarritoProvider>{children}</CarritoProvider>
+      </CatalogoProvider>
+    </AuthProvider>
+  );
+}
+
+function CarritoProvider({ children }) {
   const [carrito, setCarrito] = useState(obtenerCarrito);
-  const [usuario, setUsuario] = useState(() => sessionStorage.getItem('usuario') || '');
   const [aviso, setAviso] = useState('');
 
   // evita log duplicado por StrictMode
@@ -30,14 +41,28 @@ export function TiendaProvider({ children }) {
     );
   }, [carrito]);
 
+  function sinStock(id, extra = 1) {
+    const item = carrito.find((x) => x.id === id);
+    return item && typeof item.stock === 'number' && item.cantidad + extra > item.stock;
+  }
+
   function agregarAlCarrito(producto) {
     registrarEvento('carrito', `Agregar al carrito: ${producto.titulo}`, { id: producto.id, precio: producto.precio });
+    if (producto.stock === 0 || sinStock(producto.id)) {
+      registrarEvento('error', `Sin stock suficiente: ${producto.titulo}`);
+      setAviso(`No hay más stock disponible de ${producto.titulo}`);
+      return;
+    }
     setCarrito((actual) => agregarProducto(actual, producto));
     setAviso(`${producto.titulo} agregado al carrito`);
   }
 
   function aumentarCantidad(id) {
     registrarEvento('carrito', `Aumentar cantidad (+1): ${id}`);
+    if (sinStock(id)) {
+      setAviso('Alcanzaste el stock disponible de este producto');
+      return;
+    }
     setCarrito((actual) => aumentarProducto(actual, id));
   }
 
@@ -56,18 +81,6 @@ export function TiendaProvider({ children }) {
     setCarrito([]);
   }
 
-  function iniciarSesion(nombre) {
-    registrarEvento('sesion', `Sesión iniciada: ${nombre}`, 'guardado en sessionStorage["usuario"]');
-    sessionStorage.setItem('usuario', nombre);
-    setUsuario(nombre);
-  }
-
-  function cerrarSesion() {
-    registrarEvento('sesion', `Sesión cerrada: ${usuario}`);
-    sessionStorage.removeItem('usuario');
-    setUsuario('');
-  }
-
   function cerrarAviso() {
     registrarEvento('ui', 'Cerrar aviso emergente');
     setAviso('');
@@ -75,7 +88,6 @@ export function TiendaProvider({ children }) {
 
   const valor = {
     carrito,
-    usuario,
     aviso,
     setAviso,
     cerrarAviso,
@@ -84,8 +96,6 @@ export function TiendaProvider({ children }) {
     disminuirCantidad,
     eliminarDelCarrito,
     vaciarCarrito,
-    iniciarSesion,
-    cerrarSesion,
     total: calcularSubtotal(carrito),
     unidades: calcularUnidades(carrito),
   };

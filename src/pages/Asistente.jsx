@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Form, Spinner } from 'react-bootstrap';
-import { juegos } from '../data/juegos';
+import { useCatalogo } from '../context/CatalogoContext';
 import { registrarEvento } from '../utils/logger';
 import PlantillaPagina from '../components/templates/PlantillaPagina';
 import CampoFormulario from '../components/molecules/CampoFormulario';
@@ -9,6 +9,7 @@ import Boton from '../components/atoms/Boton';
 const MODELOS = ['gemini-2.5-flash', 'gemini-2.5-pro'];
 
 export default function Asistente() {
+  const { productos: juegos } = useCatalogo();
   const [apiKey, setApiKey] = useState('');
   const [modelo, setModelo] = useState(MODELOS[0]);
   const [pregunta, setPregunta] = useState('');

@@ -1,55 +1,54 @@
 import { useState } from 'react';
 import { Alert, Form } from 'react-bootstrap';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useTienda } from '../context/TiendaContext';
+import { useAuth } from '../context/AuthContext';
 import { registrarEvento } from '../utils/logger';
 import PlantillaPagina from '../components/templates/PlantillaPagina';
 import CampoFormulario from '../components/molecules/CampoFormulario';
 import Boton from '../components/atoms/Boton';
 
-function credencialesValidas(usuario, password) {
-  if (usuario === 'goku' && password === '1234') return true;
-  try {
-    const registrados = JSON.parse(localStorage.getItem('levelup_usuarios_demo') || '[]');
-    return registrados.some((x) => x.usuario === usuario && x.password === password);
-  } catch {
-    return false;
-  }
-}
-
 export default function Login() {
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { iniciarSesion } = useTienda();
+  const [enviando, setEnviando] = useState(false);
+  const { iniciarSesion } = useAuth();
   const navegar = useNavigate();
   const ubicacion = useLocation();
 
-  function ingresar(evento) {
+  async function ingresar(evento) {
     evento.preventDefault();
     const nombre = usuario.trim();
     registrarEvento('sesion', 'Formulario de login enviado', { usuario: nombre, password: '••••' });
 
-    if (!credencialesValidas(nombre, password)) {
-      registrarEvento('error', 'Login rechazado: credenciales incorrectas');
-      setError('Usuario o contraseña incorrectos. Prueba goku / 1234.');
+    if (!nombre || !password) {
+      setError('Ingresa tu usuario y contraseña.');
       return;
     }
 
-    iniciarSesion(nombre);
-    const destino = ubicacion.state?.desde || '/';
-    registrarEvento('navegacion', `Redirigiendo después del login a ${destino}`);
-    navegar(destino, { replace: true });
+    setEnviando(true);
+    try {
+      const perfil = await iniciarSesion(nombre, password);
+      const inicio = perfil.rol === 'ADMIN' ? '/admin' : '/';
+      const desde = ubicacion.state?.desde;
+      const destino = desde && (perfil.rol === 'ADMIN' || !desde.startsWith('/admin')) ? desde : inicio;
+      registrarEvento('navegacion', `Redirigiendo después del login a ${destino}`);
+      navegar(destino, { replace: true });
+    } catch (err) {
+      registrarEvento('error', `Login rechazado: ${err.message}`);
+      setError(err.status === 401 ? 'Usuario o contraseña incorrectos.' : err.message);
+      setEnviando(false);
+    }
   }
 
   return (
-    <PlantillaPagina titulo="Iniciar sesión" descripcion="Accede a tu cuenta de demostración." angosto>
+    <PlantillaPagina titulo="Iniciar sesión" descripcion="Accede con tu cuenta de LevelUp Store." angosto>
       <Form className="tarjeta-form" onSubmit={ingresar} noValidate>
         <h2>Acceso de usuario</h2>
         <p className="ayuda">
-          Usuario de prueba: <strong>goku</strong> · Contraseña: <strong>1234</strong>
+          Cliente: <strong>goku</strong> / <strong>1234</strong> · Administrador: <strong>admin</strong> / <strong>admin123</strong>
         </p>
-        <CampoFormulario id="usuario" etiqueta="Usuario" valor={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" />
+        <CampoFormulario id="usuario" etiqueta="Usuario" textoAyuda="También puedes usar tu correo." valor={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" />
         <CampoFormulario
           id="password"
           etiqueta="Contraseña"
@@ -59,13 +58,12 @@ export default function Login() {
           autoComplete="current-password"
         />
         {error && <Alert variant="danger">{error}</Alert>}
-        <Boton type="submit" ancho registro="Ingresar (enviar login)">
+        <Boton type="submit" ancho disabled={enviando} registro="Ingresar (enviar login)">
           Ingresar
         </Boton>
         <p className="ayuda mt-3">
-          ¿No tienes cuenta? <Link to="/registro">Crear cuenta de prueba</Link>
+          ¿No tienes cuenta? <Link to="/registro">Crear cuenta</Link>
         </p>
-        <p className="ayuda">⚠️ Este login se valida en el navegador; no ingreses contraseñas reales.</p>
       </Form>
     </PlantillaPagina>
   );

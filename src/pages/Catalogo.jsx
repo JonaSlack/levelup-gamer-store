@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { juegos } from '../data/juegos';
+import { useCatalogo } from '../context/CatalogoContext';
 import PlantillaPagina from '../components/templates/PlantillaPagina';
 import BarraBusqueda from '../components/molecules/BarraBusqueda';
 import FiltrosPlataforma from '../components/molecules/FiltrosPlataforma';
@@ -33,6 +33,7 @@ function cumpleFiltro(juego, filtro) {
 
 export default function Catalogo() {
   const ubicacion = useLocation();
+  const { productos: juegos, origen, cargando } = useCatalogo();
   const [busqueda, setBusqueda] = useState(() => leerParametros(ubicacion.search).busqueda);
   const [filtro, setFiltro] = useState(() => leerParametros(ubicacion.search).filtro);
 
@@ -47,7 +48,7 @@ export default function Catalogo() {
     return juegos.filter(
       (juego) => juego.titulo.toLocaleLowerCase('es').includes(texto) && cumpleFiltro(juego, filtro),
     );
-  }, [busqueda, filtro]);
+  }, [juegos, busqueda, filtro]);
 
   function cambiarFiltro(id) {
     setFiltro(id);
@@ -67,6 +68,9 @@ export default function Catalogo() {
       <p className="ayuda" role="status">
         {resultados.length} juego(s) encontrado(s)
       </p>
+      {!cargando && origen === 'local' && (
+        <p className="ayuda text-warning">Sin conexión con el servidor: se muestra el catálogo base sin stock actualizado.</p>
+      )}
       {resultados.length ? (
         <ListaProductos productos={resultados} />
       ) : (

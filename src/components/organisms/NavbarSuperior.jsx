@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Logo from '../atoms/Logo';
 import Boton from '../atoms/Boton';
 import { useTienda } from '../../context/TiendaContext';
+import { useAuth } from '../../context/AuthContext';
 import { registrarEvento } from '../../utils/logger';
 
 const ENLACES = [
@@ -16,9 +17,14 @@ const ENLACES = [
 ];
 
 export default function NavbarSuperior() {
-  const { usuario, unidades, cerrarSesion } = useTienda();
+  const { unidades } = useTienda();
+  const { usuario, autenticado, esAdmin, cerrarSesion } = useAuth();
   const [abierto, setAbierto] = useState(false);
   const navegar = useNavigate();
+
+  const enlaces = [...ENLACES];
+  if (autenticado) enlaces.push(['/mis-pedidos', 'Mis pedidos']);
+  if (esAdmin) enlaces.push(['/admin', '⚙️ Admin']);
 
   function alternarMenu(valor) {
     registrarEvento('ui', valor ? 'Abrir menú ☰' : 'Cerrar menú ☰');
@@ -56,12 +62,12 @@ export default function NavbarSuperior() {
 
         <Navbar.Collapse id="menu-principal">
           <Nav className="ms-auto align-items-lg-center gap-lg-2" aria-label="Menú principal">
-            {ENLACES.map(([ruta, nombre]) => (
+            {enlaces.map(([ruta, nombre]) => (
               <Nav.Link key={ruta} as={NavLink} to={ruta} end={ruta === '/'} onClick={() => clicEnlace(ruta, nombre)}>
                 {nombre}
               </Nav.Link>
             ))}
-            {usuario ? (
+            {autenticado ? (
               <Boton variante="secundario" size="sm" className="ms-lg-2 mt-2 mt-lg-0" onClick={salir} registro="Cerrar sesión">
                 Salir ({usuario})
               </Boton>

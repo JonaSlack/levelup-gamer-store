@@ -12,6 +12,9 @@ import Login from './pages/Login';
 import Registro from './pages/Registro';
 import Contacto from './pages/Contacto';
 import Asistente from './pages/Asistente';
+import MisPedidos from './pages/MisPedidos';
+import Admin from './pages/Admin';
+import AccesoDenegado from './pages/AccesoDenegado';
 import NoEncontrado from './pages/NoEncontrado';
 
 export function RutasApp() {
@@ -28,11 +31,28 @@ export function RutasApp() {
         <Route
           path="checkout"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['CLIENTE', 'ADMIN']}>
               <Checkout />
             </ProtectedRoute>
           }
         />
+        <Route
+          path="mis-pedidos"
+          element={
+            <ProtectedRoute>
+              <MisPedidos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="acceso-denegado" element={<AccesoDenegado />} />
         <Route path="login" element={<Login />} />
         <Route path="registro" element={<Registro />} />
         <Route path="contacto" element={<Contacto />} />

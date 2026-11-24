@@ -26,8 +26,13 @@ export default function Producto({ producto }) {
           <Boton variante="secundario" to={`/producto/${producto.id}`} registro={`Ver detalle de ${producto.titulo}`}>
             Ver detalle
           </Boton>
-          <Boton variante="primario" onClick={() => agregarAlCarrito(producto)} registro={`Agregar ${producto.titulo}`}>
-            Agregar al carrito
+          <Boton
+            variante="primario"
+            onClick={() => agregarAlCarrito(producto)}
+            disabled={producto.stock === 0}
+            registro={`Agregar ${producto.titulo}`}
+          >
+            {producto.stock === 0 ? 'Agotado' : 'Agregar al carrito'}
           </Boton>
         </div>
       </Card.Body>

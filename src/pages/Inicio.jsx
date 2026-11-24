@@ -1,6 +1,6 @@
 import { Container, Row, Col } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { juegos } from '../data/juegos';
+import { useCatalogo } from '../context/CatalogoContext';
 import HeroInicio from '../components/organisms/HeroInicio';
 import ListaProductos from '../components/organisms/ListaProductos';
 import TarjetaBeneficio from '../components/molecules/TarjetaBeneficio';
@@ -14,6 +14,7 @@ const BENEFICIOS = [
 ];
 
 export default function Inicio() {
+  const { productos: juegos } = useCatalogo();
   const destacados = juegos.filter((juego) => juego.destacado);
 
   return (
@@ -48,7 +49,7 @@ export default function Inicio() {
       <section className="seccion cta text-center">
         <Container>
           <h2>Únete a la comunidad LevelUp</h2>
-          <p className="subtitulo mx-auto">Crea tu cuenta de demostración y descubre juegos para PS5 y PC.</p>
+          <p className="subtitulo mx-auto">Crea tu cuenta y descubre juegos para PS5 y PC.</p>
           <Boton to="/registro" registro="CTA: Crear mi cuenta">
             Crear mi cuenta
           </Boton>

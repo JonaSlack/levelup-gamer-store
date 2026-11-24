@@ -3,21 +3,28 @@ import { Alert, Form } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { validarRegistro } from '../utils/validaciones';
 import { registrarEvento } from '../utils/logger';
+import { useAuth } from '../context/AuthContext';
 import PlantillaPagina from '../components/templates/PlantillaPagina';
 import CampoFormulario from '../components/molecules/CampoFormulario';
 import Boton from '../components/atoms/Boton';
 
 const CAMPOS = [
+  ['nombre', 'Nombre completo', 'text'],
   ['usuario', 'Nombre de usuario', 'text'],
-  ['email', 'Correo (de prueba)', 'email'],
-  ['password', 'Contraseña (no real)', 'password'],
+  ['email', 'Correo electrónico', 'email'],
+  ['password', 'Contraseña', 'password'],
   ['confirmacion', 'Confirmar contraseña', 'password'],
 ];
 
+const CAMPOS_API = { username: 'usuario' };
+
 export default function Registro() {
-  const [datos, setDatos] = useState({ usuario: '', email: '', password: '', confirmacion: '', terminos: false });
+  const [datos, setDatos] = useState({ nombre: '', usuario: '', email: '', password: '', confirmacion: '', terminos: false });
   const [error, setError] = useState('');
-  const [exito, setExito] = useState(false);
+  const [errores, setErrores] = useState({});
+  const [enviando, setEnviando] = useState(false);
+  const [creado, setCreado] = useState(null);
+  const { registrar } = useAuth();
   const navegar = useNavigate();
 
   function cambiar(evento) {
@@ -25,42 +32,51 @@ export default function Registro() {
     setDatos((anterior) => ({ ...anterior, [name]: type === 'checkbox' ? checked : value }));
   }
 
-  function registrar(evento) {
+  async function enviar(evento) {
     evento.preventDefault();
     registrarEvento('formulario', 'Formulario de registro enviado', { usuario: datos.usuario, email: datos.email });
+    setErrores({});
 
-    const mensaje = validarRegistro(datos);
+    const mensaje = datos.nombre.trim().length < 3 ? 'Ingresa tu nombre completo.' : validarRegistro(datos);
     if (mensaje) {
       registrarEvento('error', `Registro inválido: ${mensaje}`);
-      return setError(mensaje);
+      setError(mensaje);
+      return;
     }
 
+    setEnviando(true);
     try {
-      const usuarios = JSON.parse(localStorage.getItem('levelup_usuarios_demo') || '[]');
-      if (usuarios.some((u) => u.usuario === datos.usuario.trim())) {
-        registrarEvento('error', 'Registro inválido: usuario repetido');
-        return setError('Este nombre de usuario ya está registrado.');
-      }
-      localStorage.setItem(
-        'levelup_usuarios_demo',
-        JSON.stringify([...usuarios, { usuario: datos.usuario.trim(), password: datos.password }]),
-      );
-      registrarEvento('sesion', `Cuenta creada: ${datos.usuario.trim()}`, 'guardada en localStorage["levelup_usuarios_demo"]');
+      const perfil = await registrar({
+        nombre: datos.nombre.trim(),
+        username: datos.usuario.trim(),
+        email: datos.email.trim(),
+        password: datos.password,
+      });
       setError('');
-      setExito(true);
-    } catch {
-      setError('No es posible guardar la cuenta en este navegador.');
+      setCreado(perfil);
+    } catch (err) {
+      registrarEvento('error', `Registro rechazado: ${err.message}`, err.campos);
+      const porCampo = {};
+      Object.entries(err.campos ?? {}).forEach(([campo, texto]) => {
+        porCampo[CAMPOS_API[campo] ?? campo] = texto;
+      });
+      setErrores(porCampo);
+      setError(err.message);
+    } finally {
+      setEnviando(false);
     }
   }
 
-  if (exito) {
+  if (creado) {
     return (
       <section className="seccion">
         <div className="container exito-panel">
-          <h1>✅ Cuenta de demostración creada</h1>
-          <p>Ya puedes ingresar con el usuario que registraste.</p>
-          <Boton onClick={() => navegar('/login')} registro="Ir al login (registro exitoso)">
-            Ir al login
+          <h1>✅ Cuenta creada</h1>
+          <p>
+            Bienvenido, <strong>{creado.nombre}</strong>. Ya iniciaste sesión como <strong>{creado.username}</strong>.
+          </p>
+          <Boton onClick={() => navegar('/catalogo')} registro="Ir al catálogo (registro exitoso)">
+            Ir al catálogo
           </Boton>
         </div>
       </section>
@@ -68,26 +84,23 @@ export default function Registro() {
   }
 
   return (
-    <PlantillaPagina titulo="Crear cuenta" descripcion="Registro local para practicar formularios controlados y validaciones en React." angosto>
-      <Form className="tarjeta-form" onSubmit={registrar} noValidate>
+    <PlantillaPagina titulo="Crear cuenta" descripcion="Regístrate para comprar y revisar tus pedidos." angosto>
+      <Form className="tarjeta-form" onSubmit={enviar} noValidate>
         <h2>Registro de usuario</h2>
-        <Alert variant="warning" className="small">
-          Solo para fines académicos: los datos se guardan localmente y NO están protegidos por un servidor. Usa datos inventados.
-        </Alert>
         {CAMPOS.map(([id, etiqueta, tipo]) => (
-          <CampoFormulario key={id} id={id} etiqueta={etiqueta} tipo={tipo} valor={datos[id]} onChange={cambiar} />
+          <CampoFormulario key={id} id={id} etiqueta={etiqueta} tipo={tipo} valor={datos[id]} onChange={cambiar} error={errores[id]} />
         ))}
         <Form.Check
           id="terminos"
           name="terminos"
           type="checkbox"
           className="mb-3"
-          label="Acepto usar únicamente datos ficticios."
+          label="Acepto los términos y condiciones de LevelUp Store."
           checked={datos.terminos}
           onChange={cambiar}
         />
         {error && <Alert variant="danger">{error}</Alert>}
-        <Boton type="submit" ancho registro="Crear cuenta (enviar registro)">
+        <Boton type="submit" ancho disabled={enviando} registro="Crear cuenta (enviar registro)">
           Crear cuenta
         </Boton>
         <p className="ayuda mt-3">

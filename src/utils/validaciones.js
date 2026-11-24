@@ -20,8 +20,8 @@ export function validarCheckout(datos) {
 export function validarRegistro(datos) {
   if (datos.usuario.trim().length < 3) return 'El usuario debe tener al menos 3 caracteres.';
   if (!esEmailValido(datos.email)) return 'Escribe un correo válido.';
-  if (datos.password.length < 4) return 'Usa una contraseña de demostración de al menos 4 caracteres.';
+  if (datos.password.length < 4) return 'La contraseña debe tener al menos 4 caracteres.';
   if (datos.password !== datos.confirmacion) return 'Las contraseñas no coinciden.';
-  if (!datos.terminos) return 'Debes aceptar las condiciones de la demostración.';
+  if (!datos.terminos) return 'Debes aceptar los términos y condiciones.';
   return '';
 }

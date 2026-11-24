@@ -6,6 +6,7 @@ const COLORES = {
   catalogo: '#60a5fa',
   ui: '#9d9dc2',
   ia: '#f472b6',
+  api: '#34d399',
   error: '#f43f5e',
 };
 
