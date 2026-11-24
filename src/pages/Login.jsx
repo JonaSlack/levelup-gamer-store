@@ -36,7 +36,7 @@ export default function Login() {
       navegar(destino, { replace: true });
     } catch (err) {
       registrarEvento('error', `Login rechazado: ${err.message}`);
-      setError(err.status === 401 ? 'Usuario o contraseña incorrectos.' : err.message);
+      setError(err.status === 0 ? 'No hay conexión con el servidor. Intenta nuevamente.' : err.message);
       setEnviando(false);
     }
   }

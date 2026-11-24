@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Form, Spinner, Table } from 'react-bootstrap';
+import { Alert, Badge, Form, Spinner, Table } from 'react-bootstrap';
+import Boton from '../atoms/Boton';
 import { usuariosApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { registrarEvento } from '../../utils/logger';
@@ -48,6 +49,7 @@ export default function AdminUsuarios() {
                 <th>Correo</th>
                 <th>Rol</th>
                 <th>Activo</th>
+                <th>Acceso</th>
               </tr>
             </thead>
             <tbody>
@@ -79,6 +81,20 @@ export default function AdminUsuarios() {
                         disabled={soyYo}
                         onChange={(e) => actualizar(u, { activo: e.target.checked })}
                       />
+                    </td>
+                    <td className="text-nowrap">
+                      {u.bloqueado ? (
+                        <>
+                          <Badge bg="warning" text="dark" className="me-2">
+                            Bloqueado
+                          </Badge>
+                          <Boton size="sm" variante="secundario" onClick={() => actualizar(u, { desbloquear: true })} registro={`Desbloquear ${u.username}`}>
+                            Desbloquear
+                          </Boton>
+                        </>
+                      ) : (
+                        <Badge bg="success">Normal</Badge>
+                      )}
                     </td>
                   </tr>
                 );
